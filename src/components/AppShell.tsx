@@ -101,42 +101,56 @@ export type User = {
 type AuthContextValue = {
   user: User | null;
   loading: boolean;
+  logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue>({
   user: null,
-  loading: true,
+  loading: false,
+  logout: async () => {},
 });
 
 export function useAuth() {
   return useContext(AuthContext);
 }
 
-export function AppShell({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
-  const router = useRouter();
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/logout")
       .then((r) => r.json())
-      .then((d) => {
-        if (d.user) setUser(d.user);
-      })
-      .catch(() => {})
+      .then((d) => setUser(d.user ?? null))
+      .catch(() => setUser(null))
       .finally(() => setAuthLoading(false));
   }, []);
 
-  async function handleLogout() {
+  async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
+    setUser(null);
+  }
+
+  return (
+    <AuthContext.Provider value={{ user, loading: authLoading, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function AppShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const { user, loading: authLoading, logout } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  async function handleLogout() {
+    await logout();
     router.push("/login");
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading: authLoading }}>
-      <div className="min-h-screen bg-slate-100 flex">
+    <div className="min-h-screen bg-slate-100 flex">
       {/* Sidebar (mode hide: tersembunyi default, muncul saat hamburger diklik) */}
       <aside
         className={`${
@@ -281,7 +295,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
         <main className="flex-1 p-4 lg:p-8">{children}</main>
       </div>
-      </div>
-    </AuthContext.Provider>
+    </div>
   );
 }
