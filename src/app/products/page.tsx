@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, FormEvent } from "react";
-import { AppShell } from "@/components/AppShell";
+import { AppShell, useAuth } from "@/components/AppShell";
+import { Pagination } from "@/components/Pagination";
 import { downloadCSV } from "@/lib/export";
 
 type Product = {
@@ -63,7 +65,10 @@ type ProductDetail = {
   };
 };
 
+const PRODUCT_PAGE_SIZE = 10;
+
 export default function ProductsPage() {
+  const { user, loading: authLoading } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -74,6 +79,7 @@ export default function ProductsPage() {
   const [detailProductId, setDetailProductId] = useState<number | null>(null);
   const [detailData, setDetailData] = useState<ProductDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [form, setForm] = useState({
     sku: "",
@@ -107,6 +113,10 @@ export default function ProductsPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, categoryFilter]);
+
+  useEffect(() => {
+    setCurrentPage(1);
   }, [query, categoryFilter]);
 
   async function handleSubmit(e: FormEvent) {
@@ -171,6 +181,16 @@ export default function ProductsPage() {
     }
   }
 
+  const totalPages = Math.max(1, Math.ceil(products.length / PRODUCT_PAGE_SIZE));
+  const visibleProducts = products.slice(
+    (currentPage - 1) * PRODUCT_PAGE_SIZE,
+    currentPage * PRODUCT_PAGE_SIZE,
+  );
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+
   return (
     <AppShell>
       <div className="space-y-6">
@@ -209,15 +229,32 @@ export default function ProductsPage() {
               </svg>
               Export CSV
             </button>
-            <button
-              onClick={() => setShowForm((s) => !s)}
-              className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold px-4 py-2.5 rounded-lg shadow-lg shadow-indigo-500/30 flex items-center gap-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              Tambah Produk
-            </button>
+            {authLoading ? (
+              <button
+                type="button"
+                disabled
+                className="bg-slate-200 text-slate-500 font-semibold px-4 py-2.5 rounded-lg flex items-center gap-2 cursor-wait"
+              >
+                Memeriksa akses...
+              </button>
+            ) : user ? (
+              <button
+                onClick={() => setShowForm((s) => !s)}
+                className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold px-4 py-2.5 rounded-lg shadow-lg shadow-indigo-500/30 flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                Tambah Produk
+              </button>
+            ) : (
+              <Link
+                href="/login"
+                className="bg-slate-700 hover:bg-slate-800 text-white font-semibold px-4 py-2.5 rounded-lg flex items-center gap-2"
+              >
+                Masuk untuk mengelola
+              </Link>
+            )}
           </div>
         </div>
 
@@ -400,7 +437,7 @@ export default function ProductsPage() {
               </div>
               <p className="font-semibold text-slate-700">Belum ada produk</p>
               <p className="text-sm text-slate-500 mt-1">
-                Klik "Tambah Produk" untuk memulai
+                Klik &quot;Tambah Produk&quot; untuk memulai
               </p>
             </div>
           ) : (
@@ -430,7 +467,7 @@ export default function ProductsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {products.map((p) => {
+                  {visibleProducts.map((p) => {
                     const total = p.newStock + p.returnStock;
                     const low = total <= p.minStock;
                     const empty = total === 0;
@@ -509,12 +546,14 @@ export default function ProductsPage() {
                           >
                             Detail
                           </button>
-                          <button
-                            onClick={() => handleDelete(p.id, p.name)}
-                            className="text-xs font-semibold text-red-600 hover:text-red-700"
-                          >
-                            Hapus
-                          </button>
+                          {user && (
+                            <button
+                              onClick={() => handleDelete(p.id, p.name)}
+                              className="text-xs font-semibold text-red-600 hover:text-red-700"
+                            >
+                              Hapus
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );
@@ -522,6 +561,14 @@ export default function ProductsPage() {
                 </tbody>
               </table>
             </div>
+          )}
+          {!loading && products.length > 0 && (
+            <Pagination
+              page={currentPage}
+              pageSize={PRODUCT_PAGE_SIZE}
+              totalItems={products.length}
+              onPageChange={setCurrentPage}
+            />
           )}
         </div>
       </div>

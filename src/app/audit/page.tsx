@@ -74,6 +74,8 @@ export default function AuditPage() {
 
   useEffect(() => {
     load();
+    // load membaca filter state saat ini; perubahan filter tetap memicu effect ini.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from, to, action, userId]);
 
   return (

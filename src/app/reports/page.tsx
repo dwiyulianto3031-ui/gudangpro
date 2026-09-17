@@ -4,7 +4,14 @@ import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { downloadCSV } from "@/lib/export";
 
-type ReportType = "in" | "out" | "movement" | "store" | "top";
+type ReportType = "in" | "out" | "movement" | "store" | "top" | "product";
+
+type ReportProduct = {
+  id: number;
+  sku: string;
+  name: string;
+  unit: string;
+};
 
 type ReportRow = {
   id?: number;
@@ -18,6 +25,9 @@ type ReportRow = {
   productSku?: string;
   unit?: string;
   totalOut?: number;
+  totalIn?: number;
+  inTxCount?: number;
+  outTxCount?: number;
   storeName?: string | null;
   uniqueProducts?: number;
   createdAt?: string;
@@ -36,6 +46,7 @@ const REPORT_OPTIONS: { value: ReportType; label: string }[] = [
   { value: "movement", label: "Pergerakan Stok (Harian)" },
   { value: "store", label: "Per Gerai" },
   { value: "top", label: "Top Products (Fast Moving)" },
+  { value: "product", label: "Per Produk (Masuk & Keluar)" },
 ];
 
 function formatNumber(n: number) {
@@ -56,8 +67,12 @@ export default function ReportsPage() {
   const [reportType, setReportType] = useState<ReportType>("in");
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
+  const [productId, setProductId] = useState<string>("");
+  const [availableProducts, setAvailableProducts] = useState<ReportProduct[]>([]);
   const [data, setData] = useState<ReportRow[]>([]);
   const [totalQty, setTotalQty] = useState<number>(0);
+  const [totalIn, setTotalIn] = useState<number>(0);
+  const [totalOut, setTotalOut] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -68,30 +83,44 @@ export default function ReportsPage() {
       const params = new URLSearchParams({ type: reportType });
       if (from) params.set("from", from);
       if (to) params.set("to", to);
+      if (reportType === "product" && productId) params.set("productId", productId);
       const res = await fetch(`/api/reports?${params}`);
       const json = await res.json();
       if (!res.ok) {
         setFetchError(json?.error ?? "Gagal memuat laporan");
         setData([]);
         setTotalQty(0);
+        setTotalIn(0);
+        setTotalOut(0);
         return;
       }
       setData(json.data ?? []);
       setTotalQty(json.totalQty ?? 0);
+      setTotalIn(json.totalIn ?? 0);
+      setTotalOut(json.totalOut ?? 0);
     } catch (err) {
       console.error(err);
       setFetchError("Koneksi ke server terputus. Silakan muat ulang halaman.");
       setData([]);
       setTotalQty(0);
+      setTotalIn(0);
+      setTotalOut(0);
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
+    fetch("/api/products")
+      .then((res) => (res.ok ? res.json() : { products: [] }))
+      .then((json) => setAvailableProducts(json.products ?? []))
+      .catch(() => setAvailableProducts([]));
+  }, []);
+
+  useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reportType, from, to]);
+  }, [reportType, from, to, productId]);
 
   function handleExport() {
     if (data.length === 0) {
@@ -150,6 +179,20 @@ export default function ReportsPage() {
           "Jumlah Transaksi": d.txCount,
         })),
       );
+    } else if (reportType === "product") {
+      downloadCSV(
+        filename,
+        data.map((d) => ({
+          SKU: d.productSku,
+          "Nama Produk": d.productName,
+          Satuan: d.unit,
+          "Total Masuk": d.totalIn,
+          "Total Keluar": d.totalOut,
+          "Saldo Periode": (d.totalIn ?? 0) - (d.totalOut ?? 0),
+          "Transaksi Masuk": d.inTxCount,
+          "Transaksi Keluar": d.outTxCount,
+        })),
+      );
     }
   }
 
@@ -192,7 +235,7 @@ export default function ReportsPage() {
 
         {/* Filters */}
         <div className="bg-white rounded-xl border border-slate-200 p-4 print:hidden">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className={`grid grid-cols-1 gap-3 ${reportType === "product" ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
                 Jenis Laporan
@@ -209,6 +252,25 @@ export default function ReportsPage() {
                 ))}
               </select>
             </div>
+            {reportType === "product" && (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  Produk
+                </label>
+                <select
+                  value={productId}
+                  onChange={(e) => setProductId(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                >
+                  <option value="">Semua Produk</option>
+                  {availableProducts.map((product) => (
+                    <option key={product.id} value={product.id}>
+                      {product.sku} — {product.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
                 Dari Tanggal
@@ -289,6 +351,7 @@ export default function ReportsPage() {
               {reportType === "movement" && "Laporan Pergerakan Stok Harian"}
               {reportType === "store" && "Laporan Barang Keluar per Gerai"}
               {reportType === "top" && "Laporan Top Products (Fast Moving)"}
+              {reportType === "product" && "Laporan Barang Masuk & Keluar per Produk"}
             </h2>
             <p className="text-xs text-slate-500 mt-1">
               Periode: {from || "Semua"} — {to || "Sekarang"} · Dicetak:{" "}
@@ -316,6 +379,28 @@ export default function ReportsPage() {
                 >
                   {formatNumber(totalQty)}
                 </p>
+              </div>
+            </div>
+          )}
+
+          {reportType === "product" && !loading && !fetchError && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 bg-slate-50 border-b border-slate-200 print:bg-white">
+              <div className="bg-white rounded-lg border border-slate-200 p-3">
+                <p className="text-xs text-slate-500">Produk Ditampilkan</p>
+                <p className="text-2xl font-bold text-slate-900">{formatNumber(data.length)}</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  {productId
+                    ? availableProducts.find((product) => String(product.id) === productId)?.name ?? "Produk terpilih"
+                    : "Semua produk yang memiliki transaksi"}
+                </p>
+              </div>
+              <div className="bg-white rounded-lg border border-emerald-200 p-3">
+                <p className="text-xs text-emerald-600">Total Barang Masuk</p>
+                <p className="text-2xl font-bold text-emerald-600">+{formatNumber(totalIn)}</p>
+              </div>
+              <div className="bg-white rounded-lg border border-red-200 p-3">
+                <p className="text-xs text-red-600">Total Barang Keluar</p>
+                <p className="text-2xl font-bold text-red-600">-{formatNumber(totalOut)}</p>
               </div>
             </div>
           )}
@@ -498,6 +583,50 @@ export default function ReportsPage() {
                         <td className="px-4 py-2.5 text-xs">{d.userName}</td>
                       </tr>
                     ))}
+                  </tbody>
+                </table>
+              )}
+
+              {/* Ringkasan Barang Masuk & Keluar per Produk */}
+              {reportType === "product" && (
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 text-slate-600 text-xs uppercase">
+                    <tr>
+                      <th className="px-5 py-3 text-left">#</th>
+                      <th className="px-5 py-3 text-left">SKU</th>
+                      <th className="px-5 py-3 text-left">Nama Produk</th>
+                      <th className="px-5 py-3 text-right">Barang Masuk</th>
+                      <th className="px-5 py-3 text-right">Barang Keluar</th>
+                      <th className="px-5 py-3 text-right">Saldo Periode</th>
+                      <th className="px-5 py-3 text-right">Transaksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {data.map((d, idx) => {
+                      const net = (d.totalIn ?? 0) - (d.totalOut ?? 0);
+                      return (
+                        <tr key={d.productId ?? idx} className="hover:bg-slate-50">
+                          <td className="px-5 py-2.5 text-slate-500">{idx + 1}</td>
+                          <td className="px-5 py-2.5 font-mono text-xs text-slate-600">{d.productSku}</td>
+                          <td className="px-5 py-2.5 font-semibold">
+                            {d.productName}
+                            <span className="block text-xs font-normal text-slate-500">Satuan: {d.unit}</span>
+                          </td>
+                          <td className="px-5 py-2.5 text-right font-bold text-emerald-600">
+                            +{formatNumber(d.totalIn ?? 0)} {d.unit}
+                          </td>
+                          <td className="px-5 py-2.5 text-right font-bold text-red-600">
+                            -{formatNumber(d.totalOut ?? 0)} {d.unit}
+                          </td>
+                          <td className={`px-5 py-2.5 text-right font-bold ${net >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                            {net >= 0 ? "+" : ""}{formatNumber(net)} {d.unit}
+                          </td>
+                          <td className="px-5 py-2.5 text-right text-slate-600">
+                            {formatNumber((d.inTxCount ?? 0) + (d.outTxCount ?? 0))}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               )}

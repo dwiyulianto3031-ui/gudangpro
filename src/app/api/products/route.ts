@@ -86,6 +86,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ product }, { status: 201 });
   } catch (err: any) {
     console.error(err);
+    if (err?.message === "Unauthorized") {
+      return NextResponse.json(
+        { error: "Silakan login untuk menambah produk" },
+        { status: 401 },
+      );
+    }
     if (String(err?.message ?? "").toLowerCase().includes("unique")) {
       return NextResponse.json(
         { error: "SKU sudah digunakan" },

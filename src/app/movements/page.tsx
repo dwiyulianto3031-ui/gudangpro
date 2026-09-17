@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, FormEvent } from "react";
-import { AppShell } from "@/components/AppShell";
+import { AppShell, useAuth } from "@/components/AppShell";
+import { Pagination } from "@/components/Pagination";
 
 type Product = {
   id: number;
@@ -39,6 +41,7 @@ type Movement = {
 };
 
 const ASSET_STATUS_OPTIONS = ["Baik", "Rusak", "Service"];
+const MOVEMENT_PAGE_SIZE = 10;
 
 function formatNumber(n: number) {
   return n.toLocaleString("id-ID");
@@ -53,8 +56,11 @@ function formatDate(d: string) {
 }
 
 export default function MovementsPage() {
+  const { user, loading: authLoading } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
+  const [movementTotal, setMovementTotal] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
 
   // form state
@@ -149,29 +155,34 @@ export default function MovementsPage() {
     }
   }
 
-  async function loadMovements() {
+  async function loadMovements(page = currentPage) {
     const params = new URLSearchParams();
     if (filterType !== "all") params.set("type", filterType);
     if (filterProductId) params.set("productId", filterProductId);
     if (filterFrom) params.set("from", filterFrom);
     if (filterTo) params.set("to", filterTo);
     if (filterTicket.trim()) params.set("ticket", filterTicket.trim());
-    params.set("limit", "200");
+    params.set("limit", String(MOVEMENT_PAGE_SIZE));
+    params.set("offset", String((page - 1) * MOVEMENT_PAGE_SIZE));
     const res = await fetch(`/api/movements?${params}`);
     if (res.ok) {
       const data = await res.json();
       setMovements(data.movements);
+      setMovementTotal(Number(data.total ?? data.movements.length));
     }
   }
 
   useEffect(() => {
-    Promise.all([loadProducts(), loadMovements()]).finally(() => setLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadProducts().catch(() => {});
   }, []);
 
   useEffect(() => {
-    loadMovements();
+    loadMovements(currentPage).finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, filterType, filterProductId, filterFrom, filterTo, filterTicket]);
+
+  useEffect(() => {
+    setCurrentPage(1);
   }, [filterType, filterProductId, filterFrom, filterTo, filterTicket]);
 
   async function handleSubmit(e: FormEvent) {
@@ -313,15 +324,32 @@ export default function MovementsPage() {
               Catat transaksi penambahan dan pengurangan stok barang
             </p>
           </div>
-          <button
-            onClick={() => setShowTransactionForm(true)}
-            className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold px-5 py-2.5 rounded-lg shadow-lg shadow-indigo-500/30 flex items-center gap-2"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            Catat Transaksi
-          </button>
+          {authLoading ? (
+            <button
+              type="button"
+              disabled
+              className="bg-slate-200 text-slate-500 font-semibold px-5 py-2.5 rounded-lg cursor-wait"
+            >
+              Memeriksa akses...
+            </button>
+          ) : user ? (
+            <button
+              onClick={() => setShowTransactionForm(true)}
+              className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold px-5 py-2.5 rounded-lg shadow-lg shadow-indigo-500/30 flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Catat Transaksi
+            </button>
+          ) : (
+            <Link
+              href="/login"
+              className="bg-slate-700 hover:bg-slate-800 text-white font-semibold px-5 py-2.5 rounded-lg"
+            >
+              Masuk untuk mencatat
+            </Link>
+          )}
         </div>
 
         {/* Modal Catat Transaksi */}
@@ -1497,6 +1525,14 @@ export default function MovementsPage() {
                   </tbody>
                 </table>
               </div>
+            )}
+            {!loading && movementTotal > 0 && (
+              <Pagination
+                page={currentPage}
+                pageSize={MOVEMENT_PAGE_SIZE}
+                totalItems={movementTotal}
+                onPageChange={setCurrentPage}
+              />
             )}
           </div>
       </div>

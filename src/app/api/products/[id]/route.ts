@@ -23,8 +23,14 @@ export async function DELETE(
       return NextResponse.json({ error: "Produk tidak ditemukan" }, { status: 404 });
     }
     return NextResponse.json({ ok: true });
-  } catch (err) {
+  } catch (err: any) {
     console.error(err);
+    if (err?.message === "Unauthorized") {
+      return NextResponse.json(
+        { error: "Silakan login untuk menghapus produk" },
+        { status: 401 },
+      );
+    }
     return NextResponse.json(
       { error: "Gagal menghapus produk" },
       { status: 500 },
@@ -65,6 +71,12 @@ export async function PUT(
     return NextResponse.json({ product: updated });
   } catch (err: any) {
     console.error(err);
+    if (err?.message === "Unauthorized") {
+      return NextResponse.json(
+        { error: "Silakan login untuk memperbarui produk" },
+        { status: 401 },
+      );
+    }
     if (String(err?.message ?? "").toLowerCase().includes("unique")) {
       return NextResponse.json(
         { error: "SKU sudah digunakan" },

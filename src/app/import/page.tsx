@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useRef } from "react";
-import { AppShell } from "@/components/AppShell";
+import { AppShell, useAuth } from "@/components/AppShell";
 import * as XLSX from "xlsx";
 
 type ImportResult = {
@@ -40,6 +41,7 @@ const MOVEMENT_COLS = [
 ];
 
 export default function ImportPage() {
+  const { user, loading: authLoading } = useAuth();
   const [tab, setTab] = useState<"products" | "movements">("products");
   const [rows, setRows] = useState<any[]>([]);
   const [fileName, setFileName] = useState<string>("");
@@ -249,7 +251,7 @@ export default function ImportPage() {
           </div>
           {tab === "movements" && (
             <p className="text-xs text-amber-600 mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
-              <strong>Penting:</strong> Untuk barang Keluar, kolom "Nama Gerai" wajib
+              <strong>Penting:</strong> Untuk barang Keluar, kolom &quot;Nama Gerai&quot; wajib
               diisi. SKU harus sudah terdaftar di halaman Produk. Multi-value (Resi, SN,
               Barcode) dipisahkan dengan tanda <code className="font-bold">|</code> atau
               baris baru dalam satu sel.
@@ -270,6 +272,11 @@ export default function ImportPage() {
         </div>
 
         {/* Upload */}
+        {authLoading ? (
+          <div className="bg-white rounded-xl border border-slate-200 p-5 text-sm text-slate-500">
+            Memeriksa akses...
+          </div>
+        ) : user ? (
         <div className="bg-white rounded-xl border border-slate-200 p-5">
           <h2 className="font-bold text-slate-900 mb-3">Upload File</h2>
           <input
@@ -406,6 +413,29 @@ export default function ImportPage() {
             </div>
           )}
         </div>
+        ) : (
+          <div className="bg-white rounded-xl border border-amber-200 bg-amber-50/60 p-5">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-lg bg-amber-500 text-white flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M12 2l10 18H2L12 2z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="font-bold text-amber-900">Import Excel dinonaktifkan</h2>
+                <p className="text-sm text-amber-800 mt-1">
+                  Mode Pengunjung hanya dapat melihat format dan mengunduh template. Masuk terlebih dahulu untuk mengunggah atau mengimport data.
+                </p>
+                <Link
+                  href="/login"
+                  className="inline-flex mt-3 px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold"
+                >
+                  Masuk untuk mengimport
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AppShell>
   );

@@ -1,6 +1,12 @@
 "use client";
 
-import { ReactNode, useEffect, useState } from "react";
+import {
+  createContext,
+  ReactNode,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -85,17 +91,32 @@ const NAV: NavItem[] = [
   },
 ];
 
-type User = {
+export type User = {
   id: number;
   username: string;
   fullName: string;
   role: string;
 };
 
+type AuthContextValue = {
+  user: User | null;
+  loading: boolean;
+};
+
+const AuthContext = createContext<AuthContextValue>({
+  user: null,
+  loading: true,
+});
+
+export function useAuth() {
+  return useContext(AuthContext);
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -104,7 +125,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       .then((d) => {
         if (d.user) setUser(d.user);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setAuthLoading(false));
   }, []);
 
   async function handleLogout() {
@@ -113,7 +135,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 flex">
+    <AuthContext.Provider value={{ user, loading: authLoading }}>
+      <div className="min-h-screen bg-slate-100 flex">
       {/* Sidebar (mode hide: tersembunyi default, muncul saat hamburger diklik) */}
       <aside
         className={`${
@@ -144,7 +167,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
 
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {NAV.map((item) => {
+          {NAV.filter((item) => item.href !== "/import" || Boolean(user)).map((item) => {
             const active =
               item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
             return (
@@ -258,6 +281,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
         <main className="flex-1 p-4 lg:p-8">{children}</main>
       </div>
-    </div>
+      </div>
+    </AuthContext.Provider>
   );
 }

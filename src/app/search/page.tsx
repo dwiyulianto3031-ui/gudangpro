@@ -104,7 +104,7 @@ export default function SearchPage() {
             </button>
           </div>
           <p className="text-xs text-slate-500 mt-2">
-            Tip: Bisa cari dengan partial match. Contoh: "SN-00" akan menampilkan
+            Tip: Bisa cari dengan partial match. Contoh: &quot;SN-00&quot; akan menampilkan
             SN-001, SN-002, dst.
           </p>
         </form>
@@ -135,7 +135,7 @@ export default function SearchPage() {
             </div>
             <p className="font-semibold text-slate-700">Tidak ditemukan</p>
             <p className="text-sm text-slate-500 mt-1">
-              Tidak ada data yang cocok dengan "{query}"
+              Tidak ada data yang cocok dengan &quot;{query}&quot;
             </p>
           </div>
         )}
@@ -146,7 +146,7 @@ export default function SearchPage() {
               <p className="text-sm text-slate-700">
                 Ditemukan{" "}
                 <span className="font-bold text-indigo-600">{results.length}</span>{" "}
-                hasil untuk "{query}"
+                hasil untuk &quot;{query}&quot;
               </p>
             </div>
             <div className="divide-y divide-slate-100">

@@ -25,6 +25,34 @@ export async function GET(request: Request) {
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
+    if (type === "product") {
+      const rows = await db
+        .select({
+          productId: stockMovements.productId,
+          productName: products.name,
+          productSku: products.sku,
+          unit: products.unit,
+          totalIn: sql<number>`coalesce(sum(case when ${stockMovements.type} = 'in' then ${stockMovements.quantity} else 0 end), 0)::int`,
+          totalOut: sql<number>`coalesce(sum(case when ${stockMovements.type} = 'out' then ${stockMovements.quantity} else 0 end), 0)::int`,
+          inTxCount: sql<number>`count(*) filter (where ${stockMovements.type} = 'in')::int`,
+          outTxCount: sql<number>`count(*) filter (where ${stockMovements.type} = 'out')::int`,
+        })
+        .from(stockMovements)
+        .innerJoin(products, eq(stockMovements.productId, products.id))
+        .where(where)
+        .groupBy(
+          stockMovements.productId,
+          products.name,
+          products.sku,
+          products.unit,
+        )
+        .orderBy(products.name);
+
+      const totalIn = rows.reduce((sum, row) => sum + Number(row.totalIn ?? 0), 0);
+      const totalOut = rows.reduce((sum, row) => sum + Number(row.totalOut ?? 0), 0);
+      return NextResponse.json({ data: rows, totalIn, totalOut });
+    }
+
     if (type === "movement") {
       const rows = await db
         .select({

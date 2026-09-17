@@ -13,7 +13,8 @@ export async function GET(request: Request) {
     const from = url.searchParams.get("from");
     const to = url.searchParams.get("to");
     const ticket = url.searchParams.get("ticket")?.trim();
-    const limit = Math.min(Number(url.searchParams.get("limit") ?? 100), 500);
+    const limit = Math.min(Math.max(Number(url.searchParams.get("limit") ?? 100), 1), 500);
+    const offset = Math.max(Number(url.searchParams.get("offset") ?? 0), 0);
 
     const conditions: any[] = [];
     if (productId) conditions.push(eq(stockMovements.productId, Number(productId)));
@@ -31,34 +32,41 @@ export async function GET(request: Request) {
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const rows = await db
-      .select({
-        id: stockMovements.id,
-        productId: stockMovements.productId,
-        productName: products.name,
-        productSku: products.sku,
-        unit: products.unit,
-        type: stockMovements.type,
-        source: stockMovements.source,
-        quantity: stockMovements.quantity,
-        ticketNo: stockMovements.ticketNo,
-        storeName: stockMovements.storeName,
-        serialNumber: stockMovements.serialNumber,
-        barcode: stockMovements.barcode,
-        assetStatus: stockMovements.assetStatus,
-        itemType: stockMovements.itemType,
-        resi: stockMovements.resi,
-        driveLink: stockMovements.driveLink,
-        note: stockMovements.note,
-        createdAt: stockMovements.createdAt,
-        userName: users.fullName,
-      })
-      .from(stockMovements)
-      .innerJoin(products, eq(stockMovements.productId, products.id))
-      .innerJoin(users, eq(stockMovements.userId, users.id))
-      .where(where)
-      .orderBy(desc(stockMovements.createdAt))
-      .limit(limit);
+    const [rows, totalRows] = await Promise.all([
+      db
+        .select({
+          id: stockMovements.id,
+          productId: stockMovements.productId,
+          productName: products.name,
+          productSku: products.sku,
+          unit: products.unit,
+          type: stockMovements.type,
+          source: stockMovements.source,
+          quantity: stockMovements.quantity,
+          ticketNo: stockMovements.ticketNo,
+          storeName: stockMovements.storeName,
+          serialNumber: stockMovements.serialNumber,
+          barcode: stockMovements.barcode,
+          assetStatus: stockMovements.assetStatus,
+          itemType: stockMovements.itemType,
+          resi: stockMovements.resi,
+          driveLink: stockMovements.driveLink,
+          note: stockMovements.note,
+          createdAt: stockMovements.createdAt,
+          userName: users.fullName,
+        })
+        .from(stockMovements)
+        .innerJoin(products, eq(stockMovements.productId, products.id))
+        .innerJoin(users, eq(stockMovements.userId, users.id))
+        .where(where)
+        .orderBy(desc(stockMovements.createdAt))
+        .limit(limit)
+        .offset(offset),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(stockMovements)
+        .where(where),
+    ]);
 
     // Parse JSON untuk serialNumber, barcode, resi
     const parsed = rows.map((row) => {
@@ -85,7 +93,12 @@ export async function GET(request: Request) {
       };
     });
 
-    return NextResponse.json({ movements: parsed });
+    return NextResponse.json({
+      movements: parsed,
+      total: Number(totalRows[0]?.count ?? 0),
+      limit,
+      offset,
+    });
   } catch (err) {
     console.error(err);
     return NextResponse.json(

@@ -191,8 +191,14 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ results, success: successCount, errors: results.length - successCount });
-  } catch (err) {
+  } catch (err: any) {
     console.error(err);
+    if (err?.message === "Unauthorized") {
+      return NextResponse.json(
+        { error: "Silakan login untuk import transaksi" },
+        { status: 401 },
+      );
+    }
     return NextResponse.json({ error: "Gagal import transaksi" }, { status: 500 });
   }
 }

@@ -204,6 +204,7 @@ export default function DashboardPage() {
       {/* Stats cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <StatCard
+          href="/products"
           label="Total Produk"
           value={formatNumber(stats?.totalProducts ?? 0)}
           sub="Jenis barang terdaftar"
@@ -215,6 +216,7 @@ export default function DashboardPage() {
           }
         />
         <StatCard
+          href="/products"
           label="Total Stok"
           value={formatNumber(stats?.totalStock ?? 0)}
           sub="Unit barang tersedia"
@@ -226,6 +228,7 @@ export default function DashboardPage() {
           }
         />
         <StatCard
+          href="/products"
           label="Stok Baru"
           value={formatNumber(stats?.totalNewStock ?? 0)}
           sub="Unit kondisi baru"
@@ -237,6 +240,7 @@ export default function DashboardPage() {
           }
         />
         <StatCard
+          href="/products"
           label="Stok Retur"
           value={formatNumber(stats?.totalReturnStock ?? 0)}
           sub="Unit kondisi retur"
@@ -248,6 +252,7 @@ export default function DashboardPage() {
           }
         />
         <StatCard
+          href="/movements"
           label="Masuk Hari Ini"
           value={`+${formatNumber(stats?.inflowToday ?? 0)}`}
           sub="Unit ditambahkan"
@@ -259,6 +264,7 @@ export default function DashboardPage() {
           }
         />
         <StatCard
+          href="/movements"
           label="Keluar Hari Ini"
           value={`-${formatNumber(stats?.outflowToday ?? 0)}`}
           sub="Unit digunakan"
@@ -571,30 +577,41 @@ export default function DashboardPage() {
 }
 
 function StatCard({
+  href,
   label,
   value,
   sub,
   color,
   icon,
 }: {
+  href?: string;
   label: string;
   value: string;
   sub: string;
   color: string;
   icon: React.ReactNode;
 }) {
-  return (
-    <div className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition">
+  const content = (
+    <div className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md hover:border-indigo-200 transition h-full">
       <div className="flex items-start justify-between mb-3">
         <div
           className={`w-11 h-11 rounded-xl bg-gradient-to-br ${color} text-white flex items-center justify-center shadow-md`}
         >
           {icon}
         </div>
+        {href && <span className="text-xs text-slate-400">Lihat →</span>}
       </div>
       <p className="text-2xl lg:text-3xl font-bold text-slate-900">{value}</p>
       <p className="text-sm font-semibold text-slate-700 mt-1">{label}</p>
       <p className="text-xs text-slate-500 mt-0.5">{sub}</p>
     </div>
+  );
+
+  return href ? (
+    <Link href={href} className="block h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-xl">
+      {content}
+    </Link>
+  ) : (
+    content
   );
 }
